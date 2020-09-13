@@ -14,39 +14,18 @@ import EscapeTheRoom.Levels
 -- | Main function
 -- ###############
 run :: IO ()
-run = activityOf (withManyLevels allLevels initLevelMap isLevelComplete (initLevelMap level1)) handleWorld drawWorld
+run = activityOf (takeNext allLevels) handleWorld drawWorld
 
 -- ############################################
 
 -- | Data declarations and basic pieces of game
 -- ############################################
 
--- | Possible types of tiles
--- data Tile = Wall | Floor | Door DoorColor | Button DoorColor | Exit | Trap Direction
-
--- | Possible types of doors' colors
--- data DoorColor = Blue_ | Red_ | Green_ | Orange_ | Violet_ | Pink_
-
--- | Coordinates x and y of postion on map
--- data Coords = Coords Integer Integer
-
--- | Possible directions of payer's movements
--- data Direction = Up | Down | Left_ | Right_
-
 -- | State of the game
-data State = State Coords (Coords -> Tile) [DoorColor] Player
+data State = State Coords (Coords -> Tile) [DoorColor] Player [Level] Author | Simple Picture
 
 -- | Player emotions
 data Player = Basic | Nice | Surprised | Love
-
--- | Make Color from DoorColor
--- doorColorToColor :: DoorColor -> Color
--- doorColorToColor Blue_ = blue
--- doorColorToColor Red_ = red
--- doorColorToColor Green_ = green
--- doorColorToColor Orange_ = orange
--- doorColorToColor Violet_ = purple
--- doorColorToColor Pink_ = pink
 
 -- | Draw wall tile
 wallTile :: Picture
@@ -91,64 +70,6 @@ drawTile Exit = exitTile
 drawTile (Button color) = buttonTile color
 drawTile (Door color) = doorTile color
 
--- ##############################
-
--- | Draw first level of the game
--- ##############################
--- level1 :: Coords -> Tile
-
--- -- | Frame for map
--- level1 (Coords (-10) _) = Wall
--- level1 (Coords 10 _) = Wall
--- level1 (Coords _ (-10)) = Wall
--- level1 (Coords _ 10) = Wall
--- level1 (Coords x y)
---   | (y == (-5) && x >= 7) || y == -4 && x == 1
---       || (y < (-6) && y > (-8)) && x == 1
---       || ((x > 6 || x < 6) && (y == -8))
---       || ((y == -3) && (x < -8 || x > -5))
---       || ((x == 7) && (y == (-6)))
---       || (x == -3) && (y < -3 && y > -7)
---       || (y == 0) && x < 7
---       || (y == -1 && x == 6)
---       || (x == 5 || x == 4) && (y < 10 && y > 6)
---       || (x < 10 && x > 7) && y == 5
---       || (x < 7 && x > 3) && y == 5
---       || (y < 9 && y > 1) && (x == -7 || x == -1)
---       || (y < 8 && y > 0) && (x == -4 || x == 2) =
---     Wall
--- level1 (Coords (-8) (-9)) = Button Red_
--- level1 (Coords 9 (-6)) = Button Red_
--- level1 (Coords x y)
---   | ((x == 3 || x == 4 || x == 5) && (y == -4)) = Button Blue_
--- level1 (Coords x y)
---   | (x == -9) && (y < -3 && y > -8) = Button Pink_
--- level1 (Coords x y)
---   | (x == -9) && (y < 0 && y > -3) = Button Orange_
--- level1 (Coords (-9) 9) = Button Green_
--- level1 (Coords x y)
---   | ((x == 1) && (y == -5 || y == -6)) = Door Red_
--- level1 (Coords x y)
---   | (x > -9 && x < -4) && (y == -3) = Door Blue_
--- level1 (Coords x y)
---   | (x < 10 && x > 6) && (y == 0) = Door Orange_
--- level1 (Coords 5 6) = Door Pink_
--- level1 (Coords 4 6) = Door Green_
--- level1 (Coords x y)
---   | (x > -8 && x < 6) && (y == 9) = Door Green_
--- level1 (Coords 6 (-7)) = Trap Down
--- level1 (Coords 8 (-7)) = Trap Left_
--- level1 (Coords (-4) (-7)) = Trap Right_
--- level1 (Coords 7 (-2)) = Trap Left_
--- level1 (Coords 7 4) = Trap Up
--- level1 (Coords 1 8) = Trap Right_
--- level1 (Coords (-5) 8) = Trap Right_
--- level1 (Coords (-2) 1) = Trap Right_
--- level1 (Coords (-8) 1) = Trap Right_
--- level1 (Coords x y)
---   | (x == 8 || x == 7) && (y == 8 || y == 7) = Exit
--- level1 _ = Floor
-
 -- ###################################
 
 -- | Functions to draw the game levels
@@ -169,7 +90,7 @@ drawLevelMap ::
   (Coords -> Tile) ->
   Picture
 drawLevelMap level =
-  myLevelMapPictureBounded level (-10, 10) (-10, 10)
+  myLevelMapPictureBounded level (-21, 21) (-21, 21)
 
 -- | Draw tiles in given range
 drawFromTo ::
@@ -221,13 +142,14 @@ playerToPicture Nice = (lettering "\x1F638")
 playerToPicture Surprised = (lettering "\x1F640")
 playerToPicture Love = (lettering "\x1F63B")
 
--- | Initial postion of the player
--- initialWorld :: State
--- initialWorld = State (Coords (8) (-9)) level1 [] Basic
-
 -- | Draw the world with the player
 drawWorld :: State -> Picture
-drawWorld (State coords level doors player) = drawPlayerAt coords player <> drawLevelMap (openDoors doors level)
+drawWorld (State coords@(Coords x y) level doors player _levels author) = translated (-i) (-j) (drawPlayerAt (Coords x y) player 
+  <> (drawLevelMap (openDoors doors level)) <> translated 16 (-9) (lettering author))
+  where 
+      i = fromIntegral x
+      j = fromIntegral y
+drawWorld (Simple picture) = picture
 
 -- | Handle player's movements
 handleWorld ::
@@ -245,13 +167,14 @@ tryMove ::
   Direction ->
   State ->
   State
-tryMove direction (State coords level doors player)
+tryMove direction (State coords level doors player levels author)
   | canMove newCoordsTile doors =
-    changeState newCoordsTile (State newCoords level doors player)
-  | otherwise = (State coords level doors player)
+    changeState newCoordsTile (State newCoords level doors player levels author)
+  | otherwise = (State coords level doors player levels author)
   where
     newCoords = changeCoords direction coords
     newCoordsTile = level newCoords
+tryMove _ state = state
 
 -- | Change coordinates according to direction
 changeCoords ::
@@ -298,17 +221,18 @@ changeState ::
   Tile ->
   State ->
   State
-changeState (Button bc) (State coords level doors _)
+changeState (Button bc) (State coords level doors _ levels author)
   | not (oneOf bc doors) =
-    (State coords level updatedDoors Nice)
+    (State coords level updatedDoors Nice levels author)
   where
     updatedDoors = bc : doors
-changeState Exit (State coords level doors _) =
-  (State coords level doors Love)
-changeState (Trap direction) (State coords level doors _) =
-  (State coords (closeTrap coords direction level) doors Surprised)
-changeState _ (State coords level doors _) =
-  (State coords level doors Basic)
+changeState Exit (State _coords _level _doors _ levels _author) =
+  takeNext levels
+changeState (Trap direction) (State coords level doors _ levels author) =
+  (State coords (closeTrap coords direction level) doors Surprised levels author)
+changeState _ (State coords level doors _ levels author) =
+  (State coords level doors Basic levels author)
+changeState _ state = state
 
 -- | Draw wall tile according to direction by pressing on trap tile
 closeTrap ::
@@ -344,11 +268,6 @@ eqDoorColor :: DoorColor -> DoorColor -> Bool
 eqDoorColor c1 c2 
  | (doorColorToColor c1) ==  (doorColorToColor c2) = True
  | otherwise = False
--- eqDoorColor Blue_ Blue_ = True
--- eqDoorColor Green_ Green_ = True
--- eqDoorColor Orange_ Orange_ = True
--- eqDoorColor Pink_ Pink_ = True
--- eqDoorColor _ _ = False
 
 -- | Check doors' color to belong to given list of doors' colors
 oneOf :: DoorColor -> [DoorColor] -> Bool
@@ -362,27 +281,17 @@ oneOf color (x : xs)
 -- | Multiple levels support
 -- #########################
 
+-- | Screen to display at the end af all levels
+endScreen :: Picture
+endScreen = (lettering "Congratulations! You won!") <> colored (light pink) (solidRectangle 21 21)
+
 -- | Initialise game 'State' for a given 'LevelMap'.
-initLevelMap :: Level -> State
-initLevelMap (Level _author coords levelMap doors) = State coords levelMap doors Basic
+initLevelMap :: [Level] -> Level -> State
+initLevelMap levels (Level author coords levelMap doors) = State coords levelMap doors Basic levels author
 
--- | Is current level complete given some game 'State'?
-isLevelComplete :: State -> Bool
-isLevelComplete (State coords level _ _) =
-    case (level coords) of Exit -> True
-                           _    -> False
-
--- endtScreen :: Picture
--- endScreen = colored yellow (solidRectangle 21 21)
-
--- | Turn an interactive program into one with multiple levels.
-withManyLevels
-  :: [level] -- ˆ A list of levels.
-  -> (level -> world) -- ˆ Initialise world for level.
-  -> (world -> Bool) -- ˆ Is this level complete?
-  -> world -- ˆ 'interactionOf'.
-  -> world
-withManyLevels [] _ _ prevWorld = prevWorld
-withManyLevels (level:levels) initWorld isComplete prevWorld
-  | isComplete prevWorld = withManyLevels levels initWorld isComplete prevWorld
-  | otherwise            = initWorld level
+-- | Get state with the next level
+takeNext
+  :: [Level] -- ˆ A list of levels.
+  -> State
+takeNext [] = Simple endScreen
+takeNext (level:levels) = initLevelMap levels level

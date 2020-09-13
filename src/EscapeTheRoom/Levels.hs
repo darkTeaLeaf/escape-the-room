@@ -222,7 +222,7 @@ level4 = Level "Kamil Alimov"
 
 level5 :: Level
 level5 = Level "Vyacheslav Vasilev"
-  (Coords (-1) 7) (hwLevelMap . toTupleCoords) []
+  (Coords (1) 7) (hwLevelMap . toTupleCoords) []
   where
     -- | A specific map for homework
     hwLevelMap (x, 1)
