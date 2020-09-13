@@ -90,7 +90,7 @@ drawLevelMap ::
   (Coords -> Tile) ->
   Picture
 drawLevelMap level =
-  myLevelMapPictureBounded level (-21, 21) (-21, 21)
+  myLevelMapPictureBounded level (-30, 30) (-30, 30)
 
 -- | Draw tiles in given range
 drawFromTo ::
@@ -144,12 +144,15 @@ playerToPicture Love = (lettering "\x1F63B")
 
 -- | Draw the world with the player
 drawWorld :: State -> Picture
-drawWorld (State coords@(Coords x y) level doors player _levels author) = translated (-i) (-j) (drawPlayerAt (Coords x y) player 
-  <> (drawLevelMap (openDoors doors level)) <> translated 16 (-9) (lettering author))
+drawWorld (State (Coords x y) level doors player _levels author) = translated (-i) (-j) ((drawAuthor author) <> drawPlayerAt (Coords x y) player 
+  <> (drawLevelMap (openDoors doors level)))
   where 
       i = fromIntegral x
       j = fromIntegral y
 drawWorld (Simple picture) = picture
+
+drawAuthor :: Author -> Picture
+drawAuthor author = translated 16 (-5) ((lettering author) <> colored (light pink) (solidRectangle 10 2))
 
 -- | Handle player's movements
 handleWorld ::
